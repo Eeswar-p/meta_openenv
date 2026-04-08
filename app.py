@@ -1,9 +1,11 @@
 from datetime import datetime
 from typing import Dict, List
+from uuid import uuid4
 
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
+from env import OpenEnv, list_tasks
 
 
 app = FastAPI(title="Meta OpenEnv Space", version="2.0.0")
@@ -25,12 +27,23 @@ TASKS: Dict[str, Dict[str, str]] = {
 
 HISTORY: List[dict] = []
 LEADERBOARD: List[dict] = []
+SESSIONS: Dict[str, OpenEnv] = {}
 
 
 class EvaluateRequest(BaseModel):
         task: str
         user_input: str
         participant: str = "Guest"
+
+
+class ResetRequest(BaseModel):
+    task: str = "email_triage"
+    seed: int = 42
+
+
+class StepRequest(BaseModel):
+    session_id: str
+    response: str
 
 
 def _score_email(text: str) -> tuple[str, float, List[str]]:
@@ -122,6 +135,11 @@ def tasks_json():
         return TASKS
 
 
+@app.get("/api/openenv/tasks")
+def openenv_tasks_json():
+    return {"tasks": list_tasks()}
+
+
 @app.get("/api/leaderboard")
 def leaderboard_json():
         return {"leaderboard": LEADERBOARD[:10]}
@@ -173,6 +191,71 @@ def evaluate(req: EvaluateRequest):
         del LEADERBOARD[20:]
 
         return result
+
+
+@app.post("/reset")
+@app.post("/api/reset")
+@app.post("/openenv/reset")
+@app.post("/api/openenv/reset")
+def openenv_reset(req: ResetRequest):
+    task = req.task if req.task in list_tasks() else "email_triage"
+    env = OpenEnv(task=task, seed=req.seed)
+    observation = env.reset()
+    session_id = str(uuid4())
+    SESSIONS[session_id] = env
+    return {
+        "ok": True,
+        "session_id": session_id,
+        "task": task,
+        "observation": observation,
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+    }
+
+
+@app.post("/step")
+@app.post("/api/step")
+@app.post("/openenv/step")
+@app.post("/api/openenv/step")
+def openenv_step(req: StepRequest):
+    env = SESSIONS.get(req.session_id)
+    if env is None:
+        return {
+            "ok": False,
+            "error": "Invalid session_id. Call POST /reset first.",
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+        }
+
+    observation, reward, done, info = env.step({"response": req.response})
+    return {
+        "ok": True,
+        "session_id": req.session_id,
+        "observation": observation,
+        "reward": reward,
+        "done": done,
+        "info": info,
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+    }
+
+
+@app.get("/state/{session_id}")
+@app.get("/api/state/{session_id}")
+@app.get("/openenv/state/{session_id}")
+@app.get("/api/openenv/state/{session_id}")
+def openenv_state(session_id: str):
+    env = SESSIONS.get(session_id)
+    if env is None:
+        return {
+            "ok": False,
+            "error": "Invalid session_id. Call POST /reset first.",
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+        }
+
+    return {
+        "ok": True,
+        "session_id": session_id,
+        "state": env.state(),
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+    }
 
 
 @app.get("/", response_class=HTMLResponse)
