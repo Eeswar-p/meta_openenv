@@ -1,0 +1,22 @@
+name: Meta OpenEnv Environment
+version: 1.0.0
+
+description: Multi-task OpenEnv evaluation suite (Email Triage, Data Cleaning, Customer Support)
+
+tasks:
+  - email_triage
+  - data_cleaning
+  - customer_support
+
+action_space: text
+observation_space: structured_json
+
+requirements:
+  - gymnasium>=0.29.0
+  - numpy>=1.24.0
+  - openai>=1.0.0
+  - pydantic>=2.0.0
+  - pyyaml>=6.0
+  - gradio>=4.44.0
+
+validation: openenv
