@@ -7,7 +7,7 @@ name = "meta-openenv"
 version = "1.0.0"
 description = "Multi-task OpenEnv evaluation suite (Email Triage, Data Cleaning, Customer Support)"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = { text = "MIT" }
 dependencies = [
     "fastapi",
@@ -17,14 +17,15 @@ dependencies = [
     "openai>=1.0.0",
     "pydantic>=2.0.0",
     "pyyaml>=6.0",
+    "openenv-core>=0.2.0",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest", "httpx"]
 
+[project.scripts]
+serve = "server.app:main"
+
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["env*"]
-
-[project.scripts]
-run-inference = "inference:__main__"
+include = ["env*", "server*"]
