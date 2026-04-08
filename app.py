@@ -1,8 +1,8 @@
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict, List, Optional
 from uuid import uuid4
 
-from fastapi import FastAPI
+from fastapi import Body, FastAPI
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from env import OpenEnv, list_tasks
@@ -37,8 +37,8 @@ class EvaluateRequest(BaseModel):
 
 
 class ResetRequest(BaseModel):
-    task: str = "email_triage"
-    seed: int = 42
+    task: Optional[str] = "email_triage"
+    seed: Optional[int] = 42
 
 
 class StepRequest(BaseModel):
@@ -197,9 +197,12 @@ def evaluate(req: EvaluateRequest):
 @app.post("/api/reset")
 @app.post("/openenv/reset")
 @app.post("/api/openenv/reset")
-def openenv_reset(req: ResetRequest):
+def openenv_reset(req: Optional[ResetRequest] = Body(default=None)):
+    if req is None:
+        req = ResetRequest()
     task = req.task if req.task in list_tasks() else "email_triage"
-    env = OpenEnv(task=task, seed=req.seed)
+    seed = req.seed if req.seed is not None else 42
+    env = OpenEnv(task=task, seed=seed)
     observation = env.reset()
     session_id = str(uuid4())
     SESSIONS[session_id] = env
